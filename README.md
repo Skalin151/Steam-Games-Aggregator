@@ -41,6 +41,7 @@ pip install requests
 **Configure as contas:**
 - Abra o arquivo `steam_games_aggregator.py`
 - Preencha a lista `USERS` com as credenciais de cada conta:
+
   ```python
   USERS = [
     {
@@ -66,18 +67,16 @@ pip install requests
      {
         'api_key': 'SUA_API_KEY_6', 
         'steam_id': 'SUA_ID_STEAM_6'
-    }
-    
+    }  
 ]
 ```
-
 
 **Execute o script:**
 ```bash
 python steam_games_aggregator.py
 ```
 
-**Verifique o arquivo gerado:
+**Verifique o arquivo gerado:**
 - O script criará um arquivo `steam_games_aggregated.csv` com todos os dados consolidados.
 
 ---
