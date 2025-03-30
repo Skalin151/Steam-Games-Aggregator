@@ -16,10 +16,6 @@ Gerenciador de jogos Steam para múltiplas contas com interface gráfica moderna
    - Filtro por usuário específico  
    - Ordenação por nome (A-Z/Z-A) ou número de cópias  
 
-💰 **Verificação de preços**  
-   - Consulta preço na Steam Store para jogos não possuídos  
-   - Atualiza preço diretamente na tabela  
-
 💾 **Exportação de dados**  
    - Gera CSV com todos os jogos agregados  
    - Formato organizado: AppID, Nome, Cópias, Proprietários  
@@ -51,8 +47,6 @@ python steam_manager.py
 -Use a barra de busca 🔍 para filtrar jogos
 -Selecione filtros no dropdown ▼ para ordenar/limitar resultados
 -Clique em 💾 Exportar CSV para salvar dados
--Clique em 💵 Ver Preço para jogos não possuídos
-
 
 ## 📜 Créditos
 -API Steam: https://developer.valvesoftware.com

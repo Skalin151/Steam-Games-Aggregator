@@ -26,6 +26,7 @@ def load_users():
 
 USERS, USER_NAMES = load_users()
 
+
 class SteamManagerApp:
     def __init__(self, root):
         self.root = root
@@ -94,7 +95,7 @@ class SteamManagerApp:
         
         self.tree = ttk.Treeview(
             table_frame,
-            columns=("appid", "name", "copies", "owners", "price"),
+            columns=("appid", "name", "copies", "owners"),
             show="headings",
             height=20
         )
@@ -103,13 +104,11 @@ class SteamManagerApp:
         self.tree.heading("name", text="Nome do Jogo")
         self.tree.heading("copies", text="Cópias")
         self.tree.heading("owners", text="Proprietários")
-        self.tree.heading("price", text="Preço")
         
         self.tree.column("appid", width=80)
         self.tree.column("name", width=300)
         self.tree.column("copies", width=80, anchor="center")
         self.tree.column("owners", width=200)
-        self.tree.column("price", width=120)
         
         scrollbar = tb.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
@@ -136,14 +135,6 @@ class SteamManagerApp:
             bootstyle="info"
         )
         self.refresh_btn.pack(side=tk.LEFT, padx=5)
-        
-        self.price_btn = tb.Button(
-            button_frame,
-            text="Ver Preço",
-            command=self.check_price,
-            bootstyle="warning"
-        )
-        self.price_btn.pack(side=tk.LEFT, padx=5)
 
     def get_user_games(self, api_key, steam_id):
         url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
@@ -184,10 +175,18 @@ class SteamManagerApp:
         return aggregated
 
     def refresh_data(self):
-        self.games_data = self.aggregate_games()
-        self.filtered_data = self.games_data.copy()
-        self.filter_games()
-        messagebox.showinfo("Sucesso", "Dados atualizados da API do Steam!")
+        try:
+            self.games_data = self.aggregate_games()
+            self.filtered_data = self.games_data.copy()
+            self.update_table()
+            
+            # Nova lógica de exportação com confirmação visual
+            if self.export_csv():
+                messagebox.showinfo("Sucesso", f"Dados atualizados e arquivo {OUTPUT_FILE} salvo com sucesso!")
+            else:
+                messagebox.showwarning("Aviso", "Dados atualizados mas falha ao salvar CSV")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao atualizar dados: {str(e)}")
 
     def filter_games(self, *args):
         query = self.search_var.get().lower()
@@ -228,13 +227,11 @@ class SteamManagerApp:
         self.tree.delete(*self.tree.get_children())
         for appid, data in self.filtered_data.items():
             owners = ', '.join([USER_NAMES.get(u, u) for u in data['owners']])
-            price = '-' if data['owners'] else 'Clique para verificar'
             self.tree.insert('', tk.END, values=(
                 appid,
                 data['name'],
                 data['copies'],
-                owners,
-                price
+                owners
             ))
 
     def export_csv(self):
@@ -242,44 +239,23 @@ class SteamManagerApp:
             with open(OUTPUT_FILE, 'w', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow(['AppID', 'Game Name', 'Copies', 'Owners'])
+                
+                # Formatação corrigida para garantir escrita
                 for appid, data in self.games_data.items():
                     owners = ', '.join([USER_NAMES.get(u, u) for u in data['owners']])
-                    writer.writerow([appid, data['name'], data['copies'], owners])
-            messagebox.showinfo("Sucesso", f"Arquivo {OUTPUT_FILE} exportado!")
+                    writer.writerow([
+                        data['appid'],
+                        data['name'],
+                        data['copies'],
+                        owners
+                    ])
+            return True  # Confirmação de sucesso
         except Exception as e:
             messagebox.showerror("Erro", f"Erro ao exportar CSV: {str(e)}")
-
-    def check_price(self):
-        selected = self.tree.focus()
-        if not selected:
-            messagebox.showwarning("Aviso", "Selecione um jogo primeiro")
-            return
-            
-        item = self.tree.item(selected)
-        appid = item['values'][0]
-        
-        if item['values'][3] != '':
-            messagebox.showinfo("Informação", "Este jogo já está na lista de proprietários")
-            return
-            
-        try:
-            response = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}")
-            data = response.json()
-            price = data[str(appid)]['data']['price_overview']['final_formatted']
-            
-            # Atualiza a tabela com o preço encontrado
-            self.tree.item(selected, values=(
-                item['values'][0],
-                item['values'][1],
-                item['values'][2],
-                item['values'][3],
-                price
-            ))
-        except Exception as e:
-            messagebox.showerror("Erro", f"Não foi possível obter o preço: {str(e)}")
+            return False  # Indica falha
 
 if __name__ == "__main__":
     root = tb.Window(themename="darkly")
     app = SteamManagerApp(root)
-    root.geometry("1100x700")
+    root.geometry("1000x700")
     root.mainloop()
