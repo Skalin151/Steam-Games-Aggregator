@@ -1,139 +1,285 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
 import requests
 import csv
-import os
 from datetime import datetime
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
 
-USERS = [
-    {
-        'api_key': 'SUA_API_KEY_1',
-        'steam_id': 'SUA_ID_STEAM_1'
-    },
-    {
-        'api_key': 'SUA_API_KEY_2', 
-        'steam_id': 'SUA_ID_STEAM_2'
-    },
-    {
-        'api_key': 'SUA_API_KEY_3', 
-        'steam_id': 'SUA_ID_STEAM_3'
-    },
-    {
-        'api_key': 'SUA_API_KEY_4', 
-        'steam_id': 'SUA_ID_STEAM_4'
-    },
-     {
-        'api_key': 'SUA_API_KEY_5', 
-        'steam_id': 'SUA_ID_STEAM_5'
-    },
-     {
-        'api_key': 'SUA_API_KEY_6', 
-        'steam_id': 'SUA_ID_STEAM_6'
-    }
-    
-]
-
-USER_NAMES = {
-    'SUA_ID_STEAM_1': 'Utilizador 1',
-    'SUA_ID_STEAM_2': 'Utilizador 2',
-    'SUA_ID_STEAM_3': 'Utilizador 3',
-    'SUA_ID_STEAM_4': 'Utilizador 4',
-    'SUA_ID_STEAM_5': 'Utilizador 5',
-    'SUA_ID_STEAM_6': 'Utilizador 6'
-}
-
-
+# Configurações iniciais
+USERS_FILE = 'users.txt'
 OUTPUT_FILE = 'steam_games_aggregated.csv'
 
-
-def log(message):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"[{timestamp}] {message}")
-
-def get_user_games(api_key, steam_id):
-    url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
-    params = {
-        'key': api_key,
-        'steamid': steam_id,
-        'include_appinfo': True,
-        'format': 'json'
-    }
-    
+# Carregar usuários do arquivo TXT
+def load_users():
+    users = []
+    user_names = {}
     try:
-        response = requests.get(url, params=params)
-        games = response.json().get('response', {}).get('games', [])
-        log(f"Conta {steam_id} possui {len(games)} jogos.")
-        return games
-    except Exception as e:
-        return []
+        with open(USERS_FILE, 'r') as f:
+            for line in f:
+                api_key, steam_id, name = line.strip().split(',')
+                users.append({'api_key': api_key, 'steam_id': steam_id})
+                user_names[steam_id] = name
+    except FileNotFoundError:
+        messagebox.showerror("Erro", f"Arquivo {USERS_FILE} não encontrado")
+    return users, user_names
 
-def load_existing_data():
-    data = {}
-    if os.path.exists(OUTPUT_FILE):
-        with open(OUTPUT_FILE, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                owners = row['Owner'].split(', ') if row['Owner'] else []
-                data[row['AppID']] = {
-                    'AppID': row['AppID'],
-                    'Game Name': row['Game Name'],
-                    'Number of Copies': int(row['Number of Copies']),
-                    'Owner': owners
+USERS, USER_NAMES = load_users()
+
+class SteamManagerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Steam Game Manager")
+        self.style = tb.Style("darkly")
+        
+        # Variáveis de controle
+        self.games_data = {}
+        self.filtered_data = {}
+        self.search_var = tb.StringVar()
+        self.filter_var = tb.StringVar(value="All")
+        
+        # Interface
+        self.create_header()
+        self.create_search_and_filters()
+        self.create_table()
+        self.create_action_buttons()
+        
+        # Carregar dados automaticamente
+        self.refresh_data()
+
+    def create_header(self):
+        header = tb.Frame(self.root)
+        header.pack(padx=20, pady=20, fill=tk.X)
+        tb.Label(header, text="Steam Game Manager", font=("Helvetica", 18, "bold")).pack()
+
+    def create_search_and_filters(self):
+        filter_frame = tb.Frame(self.root)
+        filter_frame.pack(padx=20, pady=10, fill=tk.X)
+        
+        # Barra de busca
+        self.search_entry = tb.Entry(
+            filter_frame,
+            textvariable=self.search_var,
+            bootstyle="primary",
+            width=40
+        )
+        self.search_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Dropdown de filtros
+        user_filters = [f"User: {name}" for name in USER_NAMES.values()]
+        sort_options = [
+            "Sort: Name (A-Z)",
+            "Sort: Name (Z-A)",
+            "Sort: Copies (Asc)",
+            "Sort: Copies (Desc)"
+        ]
+        all_filters = ["All"] + user_filters + sort_options
+        
+        self.filter_combobox = tb.Combobox(
+            filter_frame,
+            textvariable=self.filter_var,
+            values=all_filters,
+            state="readonly",
+            bootstyle="secondary"
+        )
+        self.filter_combobox.pack(side=tk.LEFT, padx=5)
+        self.filter_combobox.bind("<<ComboboxSelected>>", self.filter_games)
+        
+        # Vincular eventos
+        self.search_var.trace("w", self.filter_games)
+
+    def create_table(self):
+        table_frame = tb.Frame(self.root)
+        table_frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+        
+        self.tree = ttk.Treeview(
+            table_frame,
+            columns=("appid", "name", "copies", "owners", "price"),
+            show="headings",
+            height=20
+        )
+        
+        self.tree.heading("appid", text="AppID")
+        self.tree.heading("name", text="Nome do Jogo")
+        self.tree.heading("copies", text="Cópias")
+        self.tree.heading("owners", text="Proprietários")
+        self.tree.heading("price", text="Preço")
+        
+        self.tree.column("appid", width=80)
+        self.tree.column("name", width=300)
+        self.tree.column("copies", width=80, anchor="center")
+        self.tree.column("owners", width=200)
+        self.tree.column("price", width=120)
+        
+        scrollbar = tb.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscrollcommand=scrollbar.set)
+        
+        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    def create_action_buttons(self):
+        button_frame = tb.Frame(self.root)
+        button_frame.pack(padx=20, pady=10, fill=tk.X)
+        
+        self.export_btn = tb.Button(
+            button_frame,
+            text="Exportar CSV",
+            command=self.export_csv,
+            bootstyle="success"
+        )
+        self.export_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.refresh_btn = tb.Button(
+            button_frame,
+            text="Atualizar Dados",
+            command=self.refresh_data,
+            bootstyle="info"
+        )
+        self.refresh_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.price_btn = tb.Button(
+            button_frame,
+            text="Ver Preço",
+            command=self.check_price,
+            bootstyle="warning"
+        )
+        self.price_btn.pack(side=tk.LEFT, padx=5)
+
+    def get_user_games(self, api_key, steam_id):
+        url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/"
+        params = {
+            'key': api_key,
+            'steamid': steam_id,
+            'include_appinfo': True,
+            'format': 'json'
+        }
+        
+        try:
+            response = requests.get(url, params=params)
+            games = response.json().get('response', {}).get('games', [])
+            return games
+        except Exception as e:
+            messagebox.showerror("Erro", f"Falha ao obter jogos para {steam_id}: {str(e)}")
+            return []
+
+    def aggregate_games(self):
+        aggregated = {}
+        for user in USERS:
+            games = self.get_user_games(user['api_key'], user['steam_id'])
+            for game in games:
+                appid = str(game['appid'])
+                name = game.get('name', 'Desconhecido')
+                
+                if appid in aggregated:
+                    if user['steam_id'] not in aggregated[appid]['owners']:
+                        aggregated[appid]['copies'] += 1
+                        aggregated[appid]['owners'].append(user['steam_id'])
+                else:
+                    aggregated[appid] = {
+                        'appid': appid,
+                        'name': name,
+                        'copies': 1,
+                        'owners': [user['steam_id']]
+                    }
+        return aggregated
+
+    def refresh_data(self):
+        self.games_data = self.aggregate_games()
+        self.filtered_data = self.games_data.copy()
+        self.filter_games()
+        messagebox.showinfo("Sucesso", "Dados atualizados da API do Steam!")
+
+    def filter_games(self, *args):
+        query = self.search_var.get().lower()
+        selected_filter = self.filter_var.get()
+        
+        # Filtrar por busca
+        filtered = {
+            appid: data for appid, data in self.games_data.items()
+            if query in data['name'].lower() or query in appid
+        }
+        
+        # Aplicar filtros adicionais
+        if selected_filter.startswith("User: "):
+            user = selected_filter.split(": ")[1]
+            steam_id = next((k for k, v in USER_NAMES.items() if v == user), None)
+            if steam_id:
+                filtered = {
+                    appid: data for appid, data in filtered.items()
+                    if steam_id in data['owners']
                 }
-        log(f"Dados existentes carregados: {len(data)} jogos no arquivo.")
-    else:
-        log("Nenhum arquivo existente encontrado. Criando novo arquivo.")
-    return data
-
-def save_data(data):
-    with open(OUTPUT_FILE, 'w', newline='', encoding='utf-8') as f:
-        fieldnames = ['AppID', 'Game Name', 'Number of Copies', 'Owner']
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        
-        for appid in data:
-            game = data[appid]
-            owner_names = [USER_NAMES.get(owner, owner) for owner in game['Owner']]
-            writer.writerow({
-                'AppID': appid,
-                'Game Name': game['Game Name'],
-                'Number of Copies': game['Number of Copies'],
-                'Owner': ', '.join(owner_names)
-            })
-    log(f"Arquivo salvo com {len(data)} jogos.")
-
-def process_users():
-    data = load_existing_data()
-    
-    for user in USERS:
-        log(f"Processando conta {USER_NAMES.get(user['steam_id'], user['steam_id'])}...")
-        games = get_user_games(user['api_key'], user['steam_id'])
-        if not games:
-            log(f"Nenhum jogo encontrado para a conta {USER_NAMES.get(user['steam_id'], user['steam_id'])}.")
-            continue
+                
+        elif selected_filter.startswith("Sort: "):
+            sort_by = selected_filter.split(": ")[1]
             
-        new_games = 0
-        updated_games = 0
+            if sort_by == "Name (A-Z)":
+                filtered = dict(sorted(filtered.items(), key=lambda x: x[1]['name']))
+            elif sort_by == "Name (Z-A)":
+                filtered = dict(sorted(filtered.items(), key=lambda x: x[1]['name'], reverse=True))
+            elif sort_by == "Copies (Asc)":
+                filtered = dict(sorted(filtered.items(), key=lambda x: x[1]['copies']))
+            elif sort_by == "Copies (Desc)":
+                filtered = dict(sorted(filtered.items(), key=lambda x: x[1]['copies'], reverse=True))
         
-        for game in games:
-            appid = str(game.get('appid'))
-            name = game.get('name', 'Unknown')
+        self.filtered_data = filtered
+        self.update_table()
+
+    def update_table(self):
+        self.tree.delete(*self.tree.get_children())
+        for appid, data in self.filtered_data.items():
+            owners = ', '.join([USER_NAMES.get(u, u) for u in data['owners']])
+            price = '-' if data['owners'] else 'Clique para verificar'
+            self.tree.insert('', tk.END, values=(
+                appid,
+                data['name'],
+                data['copies'],
+                owners,
+                price
+            ))
+
+    def export_csv(self):
+        try:
+            with open(OUTPUT_FILE, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow(['AppID', 'Game Name', 'Copies', 'Owners'])
+                for appid, data in self.games_data.items():
+                    owners = ', '.join([USER_NAMES.get(u, u) for u in data['owners']])
+                    writer.writerow([appid, data['name'], data['copies'], owners])
+            messagebox.showinfo("Sucesso", f"Arquivo {OUTPUT_FILE} exportado!")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Erro ao exportar CSV: {str(e)}")
+
+    def check_price(self):
+        selected = self.tree.focus()
+        if not selected:
+            messagebox.showwarning("Aviso", "Selecione um jogo primeiro")
+            return
             
-            if appid in data:
-                if user['steam_id'] not in data[appid]['Owner']:
-                    data[appid]['Number of Copies'] += 1
-                    data[appid]['Owner'].append(user['steam_id'])
-                    updated_games += 1
-            else:
-                data[appid] = {
-                    'AppID': appid,
-                    'Game Name': name,
-                    'Number of Copies': 1,
-                    'Owner': [user['steam_id']]
-                }
-                new_games += 1
+        item = self.tree.item(selected)
+        appid = item['values'][0]
         
-        log(f"Conta {USER_NAMES.get(user['steam_id'], user['steam_id'])} adicionou {new_games} novos jogos e atualizou {updated_games} existentes.")
-    
-    save_data(data)
+        if item['values'][3] != '':
+            messagebox.showinfo("Informação", "Este jogo já está na lista de proprietários")
+            return
+            
+        try:
+            response = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}")
+            data = response.json()
+            price = data[str(appid)]['data']['price_overview']['final_formatted']
+            
+            # Atualiza a tabela com o preço encontrado
+            self.tree.item(selected, values=(
+                item['values'][0],
+                item['values'][1],
+                item['values'][2],
+                item['values'][3],
+                price
+            ))
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível obter o preço: {str(e)}")
 
 if __name__ == "__main__":
-    process_users()
+    root = tb.Window(themename="darkly")
+    app = SteamManagerApp(root)
+    root.geometry("1100x700")
+    root.mainloop()

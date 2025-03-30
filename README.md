@@ -1,110 +1,60 @@
-# 🎮 Steam Games Aggregator
+# Steam Game Manager
 
-**Um script Python para agregar jogos de múltiplas contas Steam, com contagem de cópias e logs detalhados.**
+![Steam Manager](https://img.shields.io/badge/Steam-Manager-blue) ![Python](https://img.shields.io/badge/Python-3.x-green) ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-Este projeto permite que você consolide a lista de jogos de várias contas Steam em um único arquivo CSV, contando automaticamente o número de cópias e identificando os proprietários de cada jogo. Ideal para famílias ou grupos que compartilham bibliotecas na Steam.
+Gerenciador de jogos Steam para múltiplas contas com interface gráfica moderna.
 
----
+## 📋 Funcionalidades
 
-## ✨ Funcionalidades
+✅ **Agregação de jogos**  
+   - Combina jogos de múltiplas contas Steam  
+   - Contabiliza cópias por jogo  
+   - Identifica proprietários de cada jogo  
 
-- **Agregação de múltiplas contas:** Adicione várias contas Steam para consolidar a lista de jogos.
-- **Contagem automática de cópias:** O número de cópias é atualizado automaticamente quando um jogo é compartilhado por mais de uma conta.
-- **Logs detalhados:** Acompanhe o progresso do script com logs claros e informativos.
-- **Exportação para CSV:** Gera um arquivo CSV organizado para fácil visualização e análise.
-- **Fácil de usar:** Basta configurar as credenciais das contas e executar o script.
+🔍 **Busca avançada**  
+   - Filtra por nome do jogo ou AppID  
+   - Filtro por usuário específico  
+   - Ordenação por nome (A-Z/Z-A) ou número de cópias  
 
----
+💰 **Verificação de preços**  
+   - Consulta preço na Steam Store para jogos não possuídos  
+   - Atualiza preço diretamente na tabela  
 
-## 📋 Pré-requisitos
+💾 **Exportação de dados**  
+   - Gera CSV com todos os jogos agregados  
+   - Formato organizado: AppID, Nome, Cópias, Proprietários  
 
-- Python 3.8 ou superior
-- Biblioteca `requests` instalada
-- API Key da Steam (obtenha [aqui](https://steamcommunity.com/dev/apikey))
-- SteamID64 de cada conta (encontre o seu [aqui](https://steamid.io/))
+🎨 **Interface moderna**  
+   - Design escuro e limpo com ttkbootstrap  
+   - Tabela responsiva com scroll  
+   - Feedback visual para todas as operações  
 
----
+## 🛠️ Requisitos
 
-## 🚀 Como usar
+- Python 3.8+  
+- Conta Steam com API Key ativa  
+- Bibliotecas:  
+  pip install ttkbootstrap requests
 
-**Clone o repositório:**
+## 🚀 Como Usar
+1. Configure o arquivo "users.txt"
 ```bash
-git clone https://github.com/seu-usuario/steam-games-aggregator.git
-cd steam-games-aggregator
+SUA_API_KEY_1,STEAM_ID_1,Nome do Usuário 1
+SUA_API_KEY_2,STEAM_ID_2,Nome do Usuário 2
 ```
-
-**Instale as depêndencias:**
+2. Execute a aplicação:
 ```bash
-pip install requests
+python steam_manager.py
 ```
+3. Principais operações:
+-Clique em 🔄 Atualizar Dados para buscar jogos da API
+-Use a barra de busca 🔍 para filtrar jogos
+-Selecione filtros no dropdown ▼ para ordenar/limitar resultados
+-Clique em 💾 Exportar CSV para salvar dados
+-Clique em 💵 Ver Preço para jogos não possuídos
 
-**Configure as contas:**
-- Abra o arquivo `steam_games_aggregator.py`
-- Preencha a lista `USERS` com as credenciais de cada conta:
 
-  ```python
-  USERS = [
-    {
-        'api_key': 'SUA_API_KEY_1',
-        'steam_id': 'SUA_ID_STEAM_1'
-    },
-    {
-        'api_key': 'SUA_API_KEY_2', 
-        'steam_id': 'SUA_ID_STEAM_2'
-    },
-    {
-        'api_key': 'SUA_API_KEY_3', 
-        'steam_id': 'SUA_ID_STEAM_3'
-    },
-    {
-        'api_key': 'SUA_API_KEY_4', 
-        'steam_id': 'SUA_ID_STEAM_4'
-    },
-     {
-        'api_key': 'SUA_API_KEY_5', 
-        'steam_id': 'SUA_ID_STEAM_5'
-    },
-     {
-        'api_key': 'SUA_API_KEY_6', 
-        'steam_id': 'SUA_ID_STEAM_6'
-    }  
-]
-```
-
-**Execute o script:**
-```bash
-python steam_games_aggregator.py
-```
-
-**Verifique o arquivo gerado:**
-- O script criará um arquivo `steam_games_aggregated.csv` com todos os dados consolidados.
-
----
-
-## 📂 Estrutura do CSV
-
-**O arquivo CSV gerado contém as seguintes colunas:**
-
-| ID  | Nome | Nº Cópias | Dono |
-|:--- |:---- |:--------- |:---- |
-|     |      |           |      |
-
----
-
-## 📝 Logs de Execução
-
-**O script gera logs detalhados para acompanhamento. Exemplo:**
-```log
-[14:30:45] Iniciando processamento...
-[14:30:45] Nenhum arquivo existente encontrado. Criando novo arquivo.
-[14:30:45] Processando conta 7656119XXXX...
-[14:30:46] Conta 7656119XXXX possui 120 jogos.
-[14:30:46] Conta 7656119XXXX adicionou 120 novos jogos e atualizou 0 existentes.
-[14:30:46] Processando conta 7656119YYY...
-[14:30:47] Conta 7656119YYY possui 80 jogos.
-[14:30:47] Conta 7656119YYY adicionou 30 novos jogos e atualizou 50 existentes.
-[14:30:47] Arquivo salvo com 150 jogos.
-[14:30:47] Processamento concluído.
-```
-
----
+## 📜 Créditos
+-API Steam: https://developer.valvesoftware.com
+-Interface gráfica: https://ttkbootstrap.readthedocs.io
+-Ícones: https://fonts.google.com/icons
